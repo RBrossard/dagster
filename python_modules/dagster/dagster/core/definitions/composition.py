@@ -129,7 +129,7 @@ class InProgressCompositionContext:
 
         if self._invocations.get(node_name):
             raise DagsterInvalidDefinitionError(
-                "{source} {name} invoked the same node ({node_name}) twice without aliasing.".format(
+                "{source} {name} invoked the same op/graph/solid ({node_name}) twice without aliasing.".format(
                     source=self.source, name=self.name, node_name=node_name
                 )
             )
@@ -182,7 +182,7 @@ class CompleteCompositionContext(NamedTuple):
             def_name = invocation.node_def.name
             if def_name in node_def_dict and node_def_dict[def_name] is not invocation.node_def:
                 raise DagsterInvalidDefinitionError(
-                    'Detected conflicting solid definitions with the same name "{name}"'.format(
+                    'Detected conflicting op/graph/solid definitions with the same name "{name}"'.format(
                         name=def_name
                     )
                 )
@@ -404,8 +404,8 @@ class PendingNodeInvocation:
                     raise DagsterInvalidDefinitionError(
                         "In {source} {name}, received a list containing an invalid type "
                         'at index {idx} for input "{input_name}" {arg_desc} in '
-                        "solid invocation {solid_name}. Lists can only contain the "
-                        "output from previous solid invocations or input mappings, "
+                        "invocation {solid_name}. Lists can only contain the "
+                        "output from previous invocations or input mappings, "
                         "received {type}".format(
                             source=current_context().source,
                             name=current_context().name,
@@ -422,7 +422,7 @@ class PendingNodeInvocation:
         ):
             raise DagsterInvalidDefinitionError(
                 "In {source} {name}, received a tuple of multiple outputs for "
-                'input "{input_name}" {arg_desc} in solid invocation {solid_name}. '
+                'input "{input_name}" {arg_desc} in invocation {solid_name}. '
                 "Must pass individual output, available from tuple: {options}".format(
                     source=current_context().source,
                     name=current_context().name,
@@ -435,7 +435,7 @@ class PendingNodeInvocation:
         elif isinstance(output_node, InvokedSolidDynamicOutputWrapper):
             raise DagsterInvalidDefinitionError(
                 f"In {current_context().source} {current_context().name}, received the dynamic output "
-                f"{output_node.output_name} from solid {output_node.solid_name} directly. Dynamic "
+                f"{output_node.output_name} from op/graph/solid {output_node.solid_name} directly. Dynamic "
                 "output must be unpacked by invoking map or collect."
             )
 
@@ -443,7 +443,7 @@ class PendingNodeInvocation:
             output_node, NodeDefinition
         ):
             raise DagsterInvalidDefinitionError(
-                "In {source} {name}, received an un-invoked solid for input "
+                "In {source} {name}, received an un-invoked op/graph/solid for input "
                 '"{input_name}" {arg_desc} in solid invocation "{solid_name}". '
                 "Did you forget parentheses?".format(
                     source=current_context().source,
@@ -456,9 +456,9 @@ class PendingNodeInvocation:
         else:
             raise DagsterInvalidDefinitionError(
                 "In {source} {name}, received invalid type {type} for input "
-                '"{input_name}" {arg_desc} in solid invocation "{solid_name}". '
-                "Must pass the output from previous solid invocations or inputs to the "
-                "composition function as inputs when invoking solids during composition.".format(
+                '"{input_name}" {arg_desc} in invocation "{solid_name}". '
+                "Must pass the output from previous invocations or inputs to the "
+                "composition function as inputs when invoking ops/graphs/solids during composition.".format(
                     source=current_context().source,
                     name=current_context().name,
                     type=type(output_node),
@@ -691,7 +691,7 @@ def composite_mapping_from_output(
         else:
             raise DagsterInvalidDefinitionError(
                 "Returned a single output ({solid_name}.{output_name}) in "
-                "@composite_solid {name} but {num} outputs are defined. "
+                "graph/composite solid {name} but {num} outputs are defined. "
                 "Return a dict to map defined outputs.".format(
                     solid_name=output.solid_name,
                     output_name=output.output_name,
@@ -710,7 +710,7 @@ def composite_mapping_from_output(
         for handle in output:
             if handle.output_name not in output_def_dict:
                 raise DagsterInvalidDefinitionError(
-                    "Output name mismatch returning output tuple in @composite_solid {name}. "
+                    "Output name mismatch returning output tuple in graph/composite solid {name}. "
                     "No matching OutputDefinition named {output_name} for {solid_name}.{output_name}."
                     "Return a dict to map to the desired OutputDefinition".format(
                         name=solid_name,
@@ -729,7 +729,7 @@ def composite_mapping_from_output(
         for name, handle in output.items():
             if name not in output_def_dict:
                 raise DagsterInvalidDefinitionError(
-                    "@composite_solid {name} referenced key {key} which does not match any "
+                    "graph/composite solid {name} referenced key {key} which does not match any "
                     "OutputDefinitions. Valid options are: {options}".format(
                         name=solid_name, key=name, options=list(output_def_dict.keys())
                     )
@@ -746,7 +746,7 @@ def composite_mapping_from_output(
                 )
             else:
                 raise DagsterInvalidDefinitionError(
-                    "@composite_solid {name} returned problematic dict entry under "
+                    "graph/composite solid {name} returned problematic dict entry under "
                     "key {key} of type {type}. Dict values must be outputs of "
                     "invoked solids".format(name=solid_name, key=name, type=type(handle))
                 )
@@ -761,7 +761,7 @@ def composite_mapping_from_output(
     # error
     if output is not None:
         raise DagsterInvalidDefinitionError(
-            "@composite_solid {name} returned problematic value "
+            "graph/composite solid {name} returned problematic value "
             "of type {type}. Expected return value from invoked solid or dict mapping "
             "output name to return values from invoked solids".format(
                 name=solid_name, type=type(output)
@@ -870,7 +870,7 @@ def do_composition(
         if len(mappings) == 0:
             raise DagsterInvalidDefinitionError(
                 "{decorator_name} '{graph_name}' has unmapped input '{input_name}'. "
-                "Remove it or pass it to the appropriate solid invocation.".format(
+                "Remove it or pass it to the appropriate graph/op/solid invocation.".format(
                     decorator_name=decorator_name, graph_name=graph_name, input_name=defn.name
                 )
             )
@@ -891,7 +891,7 @@ def do_composition(
 
             raise DagsterInvalidDefinitionError(
                 "{decorator_name} '{graph_name}' has unmapped output '{output_name}'. "
-                "Remove it or return a value from the appropriate solid invocation.".format(
+                "Remove it or return a value from the appropriate graph/op/solid invocation.".format(
                     decorator_name=decorator_name, graph_name=graph_name, output_name=defn.name
                 )
             )
@@ -920,6 +920,6 @@ def _get_validated_config_mapping(
         return ConfigMapping(config_fn=config_fn, config_schema=config_schema)
     else:
         raise DagsterInvalidDefinitionError(
-            f"@composite_solid '{name}' defines a configuration schema but does not "
+            f"graph/composite solid '{name}' defines a configuration schema but does not "
             "define a configuration function."
         )

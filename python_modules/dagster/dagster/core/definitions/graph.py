@@ -65,7 +65,7 @@ if TYPE_CHECKING:
 def _check_node_defs_arg(graph_name: str, node_defs: List[NodeDefinition]):
     if not isinstance(node_defs, list):
         raise DagsterInvalidDefinitionError(
-            '"solids" arg to "{name}" is not a list. Got {val}.'.format(
+            '"nodes" arg to "{name}" is not a list. Got {val}.'.format(
                 name=graph_name, val=repr(node_defs)
             )
         )
@@ -75,15 +75,15 @@ def _check_node_defs_arg(graph_name: str, node_defs: List[NodeDefinition]):
         elif callable(node_def):
             raise DagsterInvalidDefinitionError(
                 """You have passed a lambda or function {func} into {name} that is
-                not a solid. You have likely forgetten to annotate this function with
-                an @solid or @lambda_solid decorator.'
+                not a graph/op/solid. You have likely forgetten to annotate this function with
+                an @graph@op, or @solid/@composite_solid decorators.'
                 """.format(
                     name=graph_name, func=node_def.__name__
                 )
             )
         else:
             raise DagsterInvalidDefinitionError(
-                "Invalid item in solid list: {item}".format(item=repr(node_def))
+                "Invalid item in graph/op/solid list: {item}".format(item=repr(node_def))
             )
 
     return node_defs
@@ -619,14 +619,14 @@ def _validate_in_mappings(
         target_solid = solid_dict.get(mapping.maps_to.solid_name)
         if target_solid is None:
             raise DagsterInvalidDefinitionError(
-                "In {class_name} '{name}' input mapping references solid "
+                "In {class_name} '{name}' input mapping references graph/op/solid "
                 "'{solid_name}' which it does not contain.".format(
                     name=name, solid_name=mapping.maps_to.solid_name, class_name=class_name
                 )
             )
         if not target_solid.has_input(mapping.maps_to.input_name):
             raise DagsterInvalidDefinitionError(
-                "In {class_name} '{name}' input mapping to solid '{mapping.maps_to.solid_name}' "
+                "In {class_name} '{name}' input mapping to graph/op/solid '{mapping.maps_to.solid_name}' "
                 "which contains no input named '{mapping.maps_to.input_name}'".format(
                     name=name, mapping=mapping, class_name=class_name
                 )
@@ -667,7 +667,7 @@ def _validate_in_mappings(
                 raise DagsterInvalidDefinitionError(
                     'In {class_name} "{name}" input mapping target '
                     '"{mapping.maps_to.solid_name}.{mapping.maps_to.input_name}" '
-                    "is already satisfied by solid output".format(
+                    "is already satisfied by op/solid output".format(
                         name=name, mapping=mapping, class_name=class_name
                     )
                 )
@@ -726,14 +726,14 @@ def _validate_out_mappings(
             target_solid = solid_dict.get(mapping.maps_from.solid_name)
             if target_solid is None:
                 raise DagsterInvalidDefinitionError(
-                    "In {class_name} '{name}' output mapping references solid "
+                    "In {class_name} '{name}' output mapping references graph/op/solid "
                     "'{solid_name}' which it does not contain.".format(
                         name=name, solid_name=mapping.maps_from.solid_name, class_name=class_name
                     )
                 )
             if not target_solid.has_output(mapping.maps_from.output_name):
                 raise DagsterInvalidDefinitionError(
-                    "In {class_name} {name} output mapping from solid '{mapping.maps_from.solid_name}' "
+                    "In {class_name} {name} output mapping from graph/op/solid '{mapping.maps_from.solid_name}' "
                     "which contains no output named '{mapping.maps_from.output_name}'".format(
                         name=name, mapping=mapping, class_name=class_name
                     )
@@ -770,7 +770,7 @@ def _validate_out_mappings(
             if dynamic_handle and not mapping.definition.is_dynamic:
                 raise DagsterInvalidDefinitionError(
                     f'In {class_name} "{name}" output "{mapping.definition.name}" mapping from '
-                    f'solid "{mapping.maps_from.solid_name}" must be a DynamicOutputDefinition since it is '
+                    f'op/solid "{mapping.maps_from.solid_name}" must be a DynamicOutputDefinition since it is '
                     f'downstream of dynamic output "{dynamic_handle.describe()}".'
                 )
 

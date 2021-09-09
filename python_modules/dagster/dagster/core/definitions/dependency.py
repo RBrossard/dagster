@@ -629,7 +629,7 @@ class MultiDependencyDefinition(
                 key = dep.solid + ":" + dep.output
                 if key in seen:
                     raise DagsterInvalidDefinitionError(
-                        'Duplicate dependencies on solid "{dep.solid}" output "{dep.output}" '
+                        'Duplicate dependencies on graph/op/solid "{dep.solid}" output "{dep.output}" '
                         "used in the same MultiDependencyDefinition.".format(dep=dep)
                     )
                 seen[key] = True
@@ -806,15 +806,15 @@ class DependencyStructure:
             input_handle.input_name
         ):
             raise DagsterInvalidDefinitionError(
-                f'Solid "{input_handle.solid_name}" cannot be downstream of dynamic output '
-                f'"{output_handle.describe()}" since input "{input_handle.input_name}" maps to a solid '
-                "that is already downstream of another dynamic output. Solids cannot be downstream of more "
+                f'Op/solid "{input_handle.solid_name}" cannot be downstream of dynamic output '
+                f'"{output_handle.describe()}" since input "{input_handle.input_name}" maps to a graph/op/solid '
+                "that is already downstream of another dynamic output. Graphs/ops/solids cannot be downstream of more "
                 "than one dynamic output"
             )
 
         if self._collect_index.get(input_handle.solid_name):
             raise DagsterInvalidDefinitionError(
-                f'Solid "{input_handle.solid_name}" cannot be both downstream of dynamic output '
+                f'Op/solid "{input_handle.solid_name}" cannot be both downstream of dynamic output '
                 f"{output_handle.describe()} and collect over dynamic output "
                 f"{list(self._collect_index[input_handle.solid_name])[0].describe()}."
             )
@@ -825,7 +825,7 @@ class DependencyStructure:
 
         if self._dynamic_fan_out_index[input_handle.solid_name] != output_handle:
             raise DagsterInvalidDefinitionError(
-                f'Solid "{input_handle.solid_name}" cannot be downstream of more than one dynamic output. '
+                f'Op/solid "{input_handle.solid_name}" cannot be downstream of more than one dynamic output. '
                 f'It is downstream of both "{output_handle.describe()}" and '
                 f'"{self._dynamic_fan_out_index[input_handle.solid_name].describe()}"'
             )
@@ -837,7 +837,7 @@ class DependencyStructure:
     ) -> None:
         if self._dynamic_fan_out_index.get(input_handle.solid_name):
             raise DagsterInvalidDefinitionError(
-                f'Solid "{input_handle.solid_name}" cannot both collect over dynamic output '
+                f'Op/solid "{input_handle.solid_name}" cannot both collect over dynamic output '
                 f"{output_handle.describe()} and be downstream of the dynamic output "
                 f"{self._dynamic_fan_out_index[input_handle.solid_name].describe()}."
             )
@@ -847,7 +847,7 @@ class DependencyStructure:
         # if the output is already fanned out
         if self._dynamic_fan_out_index.get(output_handle.solid_name):
             raise DagsterInvalidDefinitionError(
-                f'Solid "{input_handle.solid_name}" cannot be downstream of more than one dynamic output. '
+                f'Op/solid "{input_handle.solid_name}" cannot be downstream of more than one dynamic output. '
                 f'It is downstream of both "{output_handle.describe()}" and '
                 f'"{self._dynamic_fan_out_index[output_handle.solid_name].describe()}"'
             )

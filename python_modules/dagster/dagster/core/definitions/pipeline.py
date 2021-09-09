@@ -667,6 +667,24 @@ def _get_pipeline_subset_def(
         ) from exc
 
 
+def _missing_resource_error_msg(mode_def, required_resource_key, identity_that_requires_resource):
+    mode_resources = set(mode_def.resource_defs.keys())
+    if mode_def.name == "default":
+        return (
+            f'Resource key "{required_resource_key}" is required by {identity_that_requires_resource}, '
+            f'but is not provided. '
+            f'Provide a resource for key "{required_resource_key}", '
+            f'or change "{required_resource_key}" to one of the provided resources keys: {sorted(mode_resources)}.'
+        )
+    else:
+        return (
+            f'Resource key "{required_resource_key}" is required by {identity_that_requires_resource}, '
+            f'but is not provided by mode "{mode_def.name}" '
+            f'In mode "{mode_def.name}", provide a resource for key "{required_resource_key}", '
+            f'or change "{required_resource_key}" to one of the provided resources keys: {sorted(mode_resources)}.'
+        )
+
+
 def _checked_resource_reqs_for_mode(
     mode_def: ModeDefinition,
     node_defs: List[NodeDefinition],
@@ -695,26 +713,31 @@ def _checked_resource_reqs_for_mode(
                 resource_reqs.add(required_resource)
                 if required_resource not in mode_resources:
                     raise DagsterInvalidDefinitionError(
-                        (
-                            f'Resource key "{required_resource}" is required by solid def '
-                            f'{solid_def.name}, but is not provided by mode "{mode_def.name}". '
-                            f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                            f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                        _missing_resource_error_msg(
+                            mode_def, required_resource, f"op/solid {solid_def.name}"
                         )
                     )
 
             for output_def in solid_def.output_defs:
                 resource_reqs.add(output_def.io_manager_key)
                 if output_def.io_manager_key not in mode_resources:
-                    raise DagsterInvalidDefinitionError(
-                        (
+                    if mode_def.name == "default":
+                        error_msg = (
                             f'IO manager key "{output_def.io_manager_key}" is required by output '
-                            f'"{output_def.name}" of solid def {solid_def.name}, but is not '
+                            f'"{output_def.name}" of op/solid {solid_def.name}, but is not '
+                            f'provided. '
+                            f'Provide an IO manager for key "{output_def.io_manager_key}", '
+                            f'or change "{output_def.io_manager_key}" to one of the provided IO manager keys: {sorted(mode_output_managers)}.'
+                        )
+                    else:
+                        error_msg = (
+                            f'IO manager key "{output_def.io_manager_key}" is required by output '
+                            f'"{output_def.name}" of solid {solid_def.name}, but is not '
                             f'provided by mode "{mode_def.name}". '
                             f'In mode "{mode_def.name}", provide an IO manager for key "{output_def.io_manager_key}", '
                             f'or change "{output_def.io_manager_key}" to one of the provided IO manager keys: {sorted(mode_output_managers)}.'
                         )
-                    )
+                    raise DagsterInvalidDefinitionError(error_msg)
 
     resource_reqs.update(
         _checked_type_resource_reqs_for_mode(
@@ -733,11 +756,10 @@ def _checked_resource_reqs_for_mode(
             resource_reqs.add(required_resource)
             if required_resource not in mode_resources:
                 raise DagsterInvalidDefinitionError(
-                    (
-                        f'Resource key "{required_resource}" is required by intermediate storage '
-                        f'"{intermediate_storage.name}", but is not provided by mode "{mode_def.name}". '
-                        f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                        f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                    _missing_resource_error_msg(
+                        mode_def,
+                        required_resource,
+                        f'intermediate storage "{intermediate_storage.name}"',
                     )
                 )
     for solid in solid_dict.values():
@@ -746,11 +768,8 @@ def _checked_resource_reqs_for_mode(
                 resource_reqs.add(required_resource)
                 if required_resource not in mode_resources:
                     raise DagsterInvalidDefinitionError(
-                        (
-                            f'Resource key "{required_resource}" is required by hook "{hook_def.name}", but is not '
-                            f'provided by mode "{mode_def.name}". '
-                            f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                            f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                        _missing_resource_error_msg(
+                            mode_def, required_resource, f'hook "{hook_def.name}"'
                         )
                     )
 
@@ -759,11 +778,8 @@ def _checked_resource_reqs_for_mode(
             resource_reqs.add(required_resource)
             if required_resource not in mode_resources:
                 raise DagsterInvalidDefinitionError(
-                    (
-                        f'Resource key "{required_resource}" is required by hook "{hook_def.name}", but is not '
-                        f'provided by mode "{mode_def.name}". '
-                        f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                        f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                    _missing_resource_error_msg(
+                        mode_def, required_resource, f'hook "{hook_def.name}"'
                     )
                 )
 
@@ -772,10 +788,9 @@ def _checked_resource_reqs_for_mode(
             resource_reqs.add(required_resource)
             if required_resource not in mode_resources:
                 raise DagsterInvalidDefinitionError(
-                    f'Resource key "{required_resource}" is required by resource at key "{resource_key}", '
-                    f'but is not provided by mode "{mode_def.name}" '
-                    f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                    f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                    _missing_resource_error_msg(
+                        mode_def, required_resource, f'resource at key "{resource_key}"'
+                    )
                 )
 
     return resource_reqs
@@ -797,11 +812,8 @@ def _checked_type_resource_reqs_for_mode(
             resource_reqs.add(required_resource)
             if required_resource not in mode_resources:
                 raise DagsterInvalidDefinitionError(
-                    (
-                        f'Resource key "{required_resource}" is required by type "{dagster_type.display_name}", '
-                        f'but is not provided by mode "{mode_def.name}". '
-                        f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                        f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                    _missing_resource_error_msg(
+                        mode_def, required_resource, f'type "{dagster_type.display_name}"'
                     )
                 )
         if dagster_type.loader:
@@ -809,11 +821,10 @@ def _checked_type_resource_reqs_for_mode(
                 resource_reqs.add(required_resource)
                 if required_resource not in mode_resources:
                     raise DagsterInvalidDefinitionError(
-                        (
-                            f'Resource key "{required_resource}" is required by the loader on type '
-                            f'"{dagster_type.display_name}", but is not provided by mode "{mode_def.name}". '
-                            f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                            f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                        _missing_resource_error_msg(
+                            mode_def,
+                            required_resource,
+                            f'the loader on type "{dagster_type.display_name}"',
                         )
                     )
         if dagster_type.materializer:
@@ -821,11 +832,10 @@ def _checked_type_resource_reqs_for_mode(
                 resource_reqs.add(required_resource)
                 if required_resource not in mode_resources:
                     raise DagsterInvalidDefinitionError(
-                        (
-                            f'Resource key "{required_resource}" is required by the materializer on type '
-                            f'"{dagster_type.display_name}", but is not provided by mode "{mode_def.name}". '
-                            f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                            f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                        _missing_resource_error_msg(
+                            mode_def,
+                            required_resource,
+                            f'the materializer on type "{dagster_type.display_name}"',
                         )
                     )
 
@@ -843,12 +853,10 @@ def _checked_type_resource_reqs_for_mode(
                     resource_reqs.add(required_resource)
                     if required_resource not in mode_resources:
                         raise DagsterInvalidDefinitionError(
-                            (
-                                f'Resource key "{required_resource}" is required by the plugin "{plugin.__name__}" '
-                                f'on type "{dagster_type.display_name}" (used with storages {used_by_storage}), '
-                                f'but is not provided by mode "{mode_def.name}". '
-                                f'In mode "{mode_def.name}", provide a resource for key "{required_resource}", '
-                                f'or change "{required_resource}" to one of the provided resources keys: {sorted(mode_resources)}.'
+                            _missing_resource_error_msg(
+                                mode_def,
+                                required_resource,
+                                f'the plugin on type "{dagster_type.display_name}" (used with storages {used_by_storage})',
                             )
                         )
     return resource_reqs
@@ -906,15 +914,26 @@ def _checked_input_resource_reqs_for_mode(
                     output_manager_key = source_output_handle.output_def.io_manager_key
                     output_manager_def = mode_def.resource_defs[output_manager_key]
                     if not isinstance(output_manager_def, IInputManagerDefinition):
-                        raise DagsterInvalidDefinitionError(
-                            f'Input "{handle.input_def.name}" of solid "{node.name}" is '
-                            f'connected to output "{source_output_handle.output_def.name}" '
-                            f'of solid "{source_output_handle.solid.name}". In mode '
-                            f'"{mode_def.name}", that output does not have an output '
-                            f"manager that knows how to load inputs, so we don't know how "
-                            f"to load the input. To address this, assign an IOManager to "
-                            f"the upstream output."
-                        )
+                        if mode_def.name == "default":
+                            error_msg = (
+                                f'Input "{handle.input_def.name}" of op/solid "{node.name}" is '
+                                f'connected to output "{source_output_handle.output_def.name}" '
+                                f'of op/solid "{source_output_handle.solid.name}". That output '
+                                'does not have an output manager that knows how to load inputs, so '
+                                "we don't know how to load the input. To address this, assign an "
+                                "IOManager to the upstream output."
+                            )
+                        else:
+                            error_msg = (
+                                f'Input "{handle.input_def.name}" of solid "{node.name}" is '
+                                f'connected to output "{source_output_handle.output_def.name}" '
+                                f'of solid "{source_output_handle.solid.name}". In mode '
+                                f'"{mode_def.name}", that output does not have an output '
+                                f"manager that knows how to load inputs, so we don't know how "
+                                f"to load the input. To address this, assign an IOManager to "
+                                f"the upstream output."
+                            )
+                        raise DagsterInvalidDefinitionError(error_msg)
             else:
                 # input is unconnected
                 input_def = handle.input_def
@@ -924,8 +943,8 @@ def _checked_input_resource_reqs_for_mode(
                     and not input_def.root_manager_key
                 ):
                     raise DagsterInvalidDefinitionError(
-                        'Input "{input_name}" in solid "{solid_name}" is not connected to '
-                        "the output of a previous solid and can not be loaded from configuration, "
+                        'Input "{input_name}" in op/solid "{solid_name}" is not connected to '
+                        "the output of a previous op/solid and can not be loaded from configuration, "
                         "creating an impossible to execute pipeline. "
                         "Possible solutions are:\n"
                         '  * add a dagster_type_loader for the type "{dagster_type}"\n'
@@ -942,13 +961,23 @@ def _checked_input_resource_reqs_for_mode(
                 if input_def.root_manager_key:
                     resource_reqs.add(input_def.root_manager_key)
                     if input_def.root_manager_key not in mode_def.resource_defs:
-                        raise DagsterInvalidDefinitionError(
-                            f'Root input manager key "{input_def.root_manager_key}" is required by '
-                            f'unsatisfied input "{input_def.name}" of solid {node.name}, but is not '
-                            f'provided by mode "{mode_def.name}". '
-                            f'In mode "{mode_def.name}", provide a root input manager for key "{input_def.root_manager_key}", '
-                            f'or change "{input_def.root_manager_key}" to one of the provided root input managers keys: {sorted(mode_root_input_managers)}.'
-                        )
+                        if mode_def.name == "default":
+                            error_msg = (
+                                f'Root input manager key "{input_def.root_manager_key}" is required by '
+                                f'unsatisfied input "{input_def.name}" of solid {node.name}, but is not '
+                                f'provided. '
+                                f'Provide a root input manager for key "{input_def.root_manager_key}", '
+                                f'or change "{input_def.root_manager_key}" to one of the provided root input managers keys: {sorted(mode_root_input_managers)}.'
+                            )
+                        else:
+                            error_msg = (
+                                f'Root input manager key "{input_def.root_manager_key}" is required by '
+                                f'unsatisfied input "{input_def.name}" of solid {node.name}, but is not '
+                                f'provided by mode "{mode_def.name}". '
+                                f'In mode "{mode_def.name}", provide a root input manager for key "{input_def.root_manager_key}", '
+                                f'or change "{input_def.root_manager_key}" to one of the provided root input managers keys: {sorted(mode_root_input_managers)}.'
+                            )
+                        raise DagsterInvalidDefinitionError(error_msg)
 
     return resource_reqs
 
@@ -960,7 +989,7 @@ def _build_all_node_defs(node_defs: List[NodeDefinition]) -> Dict[str, NodeDefin
             if node_def.name in all_defs:
                 if all_defs[node_def.name] != node_def:
                     raise DagsterInvalidDefinitionError(
-                        'Detected conflicting solid definitions with the same name "{name}"'.format(
+                        'Detected conflicting op/solid definitions with the same name "{name}"'.format(
                             name=node_def.name
                         )
                     )

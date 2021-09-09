@@ -273,7 +273,7 @@ def _checked_inferred_type(inferred: InferredInputProps) -> DagsterType:
         raise DagsterInvalidDefinitionError(
             f"Input parameter {inferred.name} is annotated with {resolved_type.display_name} "
             "which is a type that represents passing no data. This type must be used "
-            "via InputDefinition and no parameter should be included in the solid function."
+            "via InputDefinition and no parameter should be included in the op/solid function."
         )
     return resolved_type
 
